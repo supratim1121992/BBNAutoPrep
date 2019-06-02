@@ -1,0 +1,20 @@
+Package: BBNAutoPrep
+Type: Package
+Title: Automated Data Inspection & Pre-processing
+Version: 1.0.0
+Author: Supratim Chaudhuri
+Maintainer: Supratim Chaudhuri <supratim.chaudhuri@fractal.ai>
+Description: The package provides a function for data inspection & quality check which
+    reads the raw data and generates a comprehensive report providing insights. Functions
+    are also available to perform data pre-processing and transformation aided by a GUI.
+Depends: R (>= 3.4.0)
+Imports: corrplot,
+    data.table,
+    DMwR,
+    Hmisc,
+    openxlsx,
+    readxl
+License: GPL-3
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 6.1.1
