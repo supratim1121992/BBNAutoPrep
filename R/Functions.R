@@ -1608,10 +1608,11 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
     #####################################---Train/Test split---#####################################
 
     pt_tst<-dlgList(choices = vec_time,title = "Select test data points",multiple = T)$res
-    eda_var<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Variable_Type"]] %in% "EDA") == T]
+    mod_var<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Variable_Type"]] %in% "EDA" == F)]
     data_split<-function(x,raw = F,name){
-      dt_tst<-x[which(vec_time %in% pt_tst),which(colnames(x) %in% eda_var == F)]
-      dt_trn<-x[which(vec_time %in% pt_tst == F),which(colnames(x) %in% eda_var == F)]
+      dt_tst<-x[which(vec_time %in% pt_tst == F),which(colnames(x) %in% mod_var),with = F]
+      dt_trn<-x[which(vec_time %in% pt_tst == F),which(colnames(x) %in% mod_var),with = F]
+
       if(raw == F){
         write.csv(x = dt_trn,row.names = F,
                   file = paste(wd_path,paste(name,"\\Train_Log_",name,".csv",sep = ""),sep = "\\"))
@@ -1675,7 +1676,7 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
       }
       x<-cbind.data.frame("Market/Retailer" = rep(x = ret_nm,times = nrow(x)),x)
 
-      write.xlsx(x = x,file = paste(wd_path,paste(name,"\\Transformed Data_",name,".xlsx",sep = ""),sep = "\\"))
+      openxlsx::write.xlsx(x = x,file = paste(wd_path,paste(name,"\\Transformed Data_",name,".xlsx",sep = ""),sep = "\\"))
 
       return(x)
     }
