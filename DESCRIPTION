@@ -1,7 +1,7 @@
 Package: BBNAutoPrep
 Type: Package
 Title: Automated Data Inspection & Pre-processing
-Version: 1.0.0
+Version: 1.1.0
 Author: Supratim Chaudhuri
 Maintainer: Supratim Chaudhuri <supratim.chaudhuri@fractal.ai>
 Description: The package provides a function for data inspection & quality check which

@@ -539,19 +539,6 @@ Prepare_Data<-function(prm = F){
     dt_in<-dt_in[,Year_Temp := NULL]
     dt_in<-dt_in[,Period_Temp := NULL]
 
-    seas_op<-dlgMessage(message = "Calculate seasonality index?",type = "yesno")$res
-    if(seas_op == "yes"){
-      seas_nm<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["RawData_Name"]] %in% colnames(dt_in))]
-      seas_var<-dlgList(choices = seas_nm,multiple = F,title = "Choose variable for Seas.ID")$res
-      seas_var<-dt_scp$Scope[["RawData_Name"]][which(dt_scp$Scope[["Model_Name"]] %in% seas_var)]
-    }
-    cat_op<-dlgMessage(message = "Calculate category index?",type = "yesno")$res
-    if(cat_op == "yes"){
-      cat_nm<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["RawData_Name"]]%in% colnames(dt_in))]
-      cat_var<-dlgList(choices = cat_nm,multiple = F,title = "Choose variable for Cat.ID")$res
-      cat_var<-dt_scp$Scope[["RawData_Name"]][which(dt_scp$Scope[["Model_Name"]] %in% cat_var)]
-    }
-
     ls_dt_in<-vector(mode = "list",length = length(unq_ret))
     names(ls_dt_in)<-unq_ret
     for(i in 1:length(unq_ret)){
@@ -570,46 +557,10 @@ Prepare_Data<-function(prm = F){
       ls_dt_in<-lapply(X = ls_dt_in,FUN = data_slice,y = col_prm)
     }
 
-    set_time<-function(x){
-      x[,Year_Temp := as.numeric(x[[sel_yr]])]
-      x[,Period_Temp := as.numeric(gsub(pattern = '([0-9]+).*',replacement = '\\1',x = x[[sel_per]]))]
-      if(seas_op == "yes"){
-        dt_seas<-x[,.("seasonality.index" = mean(as.numeric(eval(as.name(seas_var))),na.rm = T)),by = "Period_Temp"]
-        dt_seas[,seasonality.index := seasonality.index/mean(seasonality.index,na.rm = T)]
-        x<-merge(x = x,y = dt_seas,by = "Period_Temp")
-      }
-      if(cat_op == "yes"){
-        dt_cat<-x[,.("category.index" = mean(as.numeric(eval(as.name(cat_var))),na.rm = T)),by = "Period_Temp"]
-        dt_cat[,category.index := category.index/mean(category.index,na.rm = T)]
-        x<-merge(x = x,y = dt_cat,by = "Period_Temp")
-      }
-      x<-x[order(Year_Temp,Period_Temp)]
-      x[,Year_Temp := NULL]
-      x[,Period_Temp := NULL]
-
-      return(x)
-    }
-    if(prm == T){
-      ls_dt_in<-lapply(X = ls_dt_in,FUN = function(y){
-        lapply(X = y,FUN = set_time)
-      })
-    }
-    else {
-      ls_dt_in<-lapply(X = ls_dt_in,FUN = set_time)
-    }
-
-    if(seas_op == "yes"){
-      cat("-----Seasonality index successfully computed-----\n\n")
-    }
-    if(cat_op == "yes"){
-      cat("-----Category index successfully computed-----\n\n")
-    }
-
     vec_var_keep<-dt_scp$Scope[["RawData_Name"]]
 
     sel_col<-function(x,ref_keep){
       x<-x[,which(colnames(x) %in% ref_keep == T),with = F]
-      x<-x[,ref_keep[which(ref_keep %in% colnames(x) == T)],with = F]
       return(x)
     }
     if(prm == T){
@@ -704,7 +655,7 @@ Prepare_Data<-function(prm = F){
           cat("Variables missing throughout have been treated\n\n")
         }
 
-        if(sum(complete.cases(x)) > 15){
+        if(nrow(x[setdiff(x = 1:nrow(x),y = which(!complete.cases(x))),]) > 15){
           imp_choice<-c("knnImputation","Impute with median of same year","Impute with mean of same year","Imputation with Rolling mean","Impute with fixed value")
         }
         else {
@@ -1314,7 +1265,7 @@ Prepare_Data<-function(prm = F){
         }
         ls_out_trt[[i]]<-ls_prm
       }
-      ls_out_trt<<-lapply(X = ls_out_trt,FUN = rbindlist,use.names = T)
+      ls_out_trt<-lapply(X = ls_out_trt,FUN = rbindlist,use.names = T)
       dt_out_trt<-rbindlist(l = ls_out_trt,use.names = T)
       dt_out_trt<-dt_out_trt[order(`Market/Retailer`,`Promo family`,Year,Period,decreasing = F)]
     }
@@ -1383,6 +1334,108 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
     tar_var<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Variable_Type"]] == "Target")]
     cat("-----",tar_var," has been chosen as the target variable-----\n\n",sep = "")
 
+    #####################################---Variable creation---#####################################
+
+    seas_op<-dlgMessage(message = "Calculate seasonality index?",type = "yesno")$res
+    if(seas_op == "yes"){
+      if(prm == T){
+        seas_nm<-colnames(ls_dt_sub[[1]][[1]])
+        seas_var<-dlgList(choices = seas_nm,multiple = F,title = "Choose variable for Seas.ID")$res
+      }
+      else {
+        seas_nm<-colnames(ls_dt_sub[[1]])
+        seas_var<-dlgList(choices = seas_nm,multiple = F,title = "Choose variable for Seas.ID")$res
+      }
+    }
+    cat_op<-dlgMessage(message = "Calculate category index?",type = "yesno")$res
+    if(cat_op == "yes"){
+      if(prm == T){
+        cat_nm<-colnames(ls_dt_sub[[1]][[1]])
+        cat_var<-dlgList(choices = cat_nm,multiple = F,title = "Choose variable for Cat.ID")$res
+      }
+      else {
+        cat_nm<-colnames(ls_dt_sub[[1]])
+        cat_var<-dlgList(choices = cat_nm,multiple = F,title = "Choose variable for Cat.ID")$res
+      }
+    }
+
+    if(seas_op == "yes" | cat_op == "yes"){
+      set_time<-function(x){
+        yr_val<-as.numeric(sapply(X = strsplit(x = vec_time,split = " - ",fixed = T),FUN = function(x){x[[1]]}))
+        per_val<-sapply(X = strsplit(x = vec_time,split = " - ",fixed = T),FUN = function(x){x[[2]]})
+        per_val<-as.numeric(sapply(X = strsplit(x = per_val,split = ":",fixed = T),FUN = function(x){x[[2]]}))
+        x[["Year_Temp_2"]]<-yr_val
+        x[["Period_Temp_2"]]<-per_val
+        if(seas_op == "yes"){
+          dt_seas<-x[,.("seasonality_index" = mean(as.numeric(eval(as.name(seas_var))),na.rm = T)),by = "Period_Temp_2"]
+          dt_seas[,seasonality_index := seasonality_index/mean(seasonality_index,na.rm = T)]
+          x<-merge(x = x,y = dt_seas,by = "Period_Temp_2",all.x = T)
+        }
+        if(cat_op == "yes"){
+          dt_cat<-x[,.("category_index" = mean(as.numeric(eval(as.name(cat_var))),na.rm = T)),by = "Period_Temp_2"]
+          dt_cat[,category_index := category_index/mean(category_index,na.rm = T)]
+          x<-merge(x = x,y = dt_cat,by = "Period_Temp_2",all.x = T)
+        }
+        x<-x[order(Year_Temp_2,Period_Temp_2)]
+        x[["Year_Temp_2"]]<-NULL
+        x[["Period_Temp_2"]]<-NULL
+
+        return(x)
+      }
+      if(prm == T){
+        ls_dt_sub<-lapply(X = ls_dt_sub,FUN = function(y){
+          lapply(X = y,FUN = set_time)
+        })
+      }
+      else {
+        ls_dt_sub<-lapply(X = ls_dt_sub,FUN = set_time)
+      }
+
+      if(seas_op == "yes"){
+        cat("-----Seasonality index successfully computed-----\n\n")
+      }
+      if(cat_op == "yes"){
+        cat("-----Category index successfully computed-----\n\n")
+      }
+    }
+
+    #####################################---Column reordering---#####################################
+
+    reorder_col<-function(x,name){
+      if(seas_op == "yes"){
+        colnames(x)[which(colnames(x) %in% "seasonality_index")]<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["RawData_Name"]] %in% "seasonality_index")]
+      }
+      if(cat_op == "yes"){
+        colnames(x)[which(colnames(x) %in% "category_index")]<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["RawData_Name"]] %in% "category_index")]
+      }
+      col_ord<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Model_Name"]] %in% colnames(x))]
+      x<-setcolorder(x = x,neworder = col_ord)
+      if(length(col_ord) < length(na.omit(dt_scp$Scope[["Model_Name"]]))){
+        var_tr_mis<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Model_Name"]] %in% colnames(x) == F)]
+        writeLines(text = c("In Scope variables missing in data:",na.omit(var_tr_mis)),
+                   con = paste(wd_path,paste(name,"\\Var_Scope_Miss_",name,".txt",sep = ""),sep = "\\"))
+      }
+      return(x)
+    }
+
+    if(prm == T){
+      for(i in 1:length(ls_dt_sub)){
+        nm_ret<-names(ls_dt_sub)[i]
+        for(j in 1:length(ls_dt_sub[[i]])){
+          nm_ls<-paste(nm_ret,names(ls_dt_sub[[i]])[j],sep = "_")
+          ls_dt_sub[[i]][[j]]<-reorder_col(x = ls_dt_sub[[i]][[j]],name = nm_ls)
+        }
+      }
+    }
+    else {
+      for(i in 1:length(ls_dt_sub)){
+        nm_ls<-names(ls_dt_sub)[i]
+        ls_dt_sub[[i]]<-reorder_col(x = ls_dt_sub[[i]],name = nm_ls)
+      }
+    }
+
+    cat("-----Column reordering completed-----\n\n")
+
     #####################################---Variable transformation---#####################################
 
     adstock<-function(dt,col,adstk){
@@ -1424,12 +1477,19 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
     make_trfl<-function(x,trans = NULL){
       x<-x[is.na(eval(as.name(trans))) == F]
       dt_trfl<-data.table("Variable" = character(),"Value" = numeric())
-      for(i in 1:nrow(x)){
-        min<-as.numeric(unlist(strsplit(x = x[[trans]][i],split = ",",fixed = T))[1])
-        max<-as.numeric(unlist(strsplit(x = x[[trans]][i],split = ",",fixed = T))[2])
-        val_tr<-seq(from = min,to = max,by = 1)
-        var_tr<-rep(x = x[["Model_Name"]][i],times = length(val_tr))
-        dt_trfl<-rbind.data.frame(dt_trfl,data.table("Variable" = var_tr,"Value" = val_tr))
+      if(nrow(x) > 0){
+        for(i in 1:nrow(x)){
+          min<-as.numeric(unlist(strsplit(x = x[[trans]][i],split = ",",fixed = T))[1])
+          max<-as.numeric(unlist(strsplit(x = x[[trans]][i],split = ",",fixed = T))[2])
+          if(trans == "ADStock"){
+            val_tr<-seq(from = min,to = max,by = 0.1)
+          }
+          else {
+            val_tr<-seq(from = min,to = max,by = 1)
+          }
+          var_tr<-rep(x = x[["Model_Name"]][i],times = length(val_tr))
+          dt_trfl<-rbind.data.frame(dt_trfl,data.table("Variable" = var_tr,"Value" = val_tr))
+        }
       }
       return(dt_trfl)
     }
@@ -1496,7 +1556,7 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
       sub_nm<-names(cor_res)<-colnames(x)
       cor_vec<-character()
       for(i in 1:length(sub_nm)){
-        if(sub_nm[i] %in% trl_nm == T | sub_nm[i] %in% tra_nm == T | sub_nm[i] %in% trm_nm){
+        if(sub_nm[i] %in% trl_nm == T | sub_nm[i] %in% tra_nm == T | sub_nm[i] %in% trm_nm == T){
           chk_cor<-c(sub_nm[i],names(trl_list)[which(trl_nm %in% sub_nm[i] == T)],names(tra_list)[which(tra_nm %in% sub_nm[i] == T)],
                      names(trm_list)[which(trm_nm %in% sub_nm[i] == T)])
           cor_col<-numeric()
@@ -1512,13 +1572,36 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
             if(exp_sign < 0){
               x[[i]]<-dt_all[[chk_cor[which.min(cor_col)]]]
               colnames(x)[i]<-chk_cor[which.min(cor_col)]
+              cor_vec[i]<-paste(chk_cor[which.min(cor_col)][1]," ~ Correlation : ",min(cor_col,na.rm = T))
             }
             else {
               x[[i]]<-dt_all[[chk_cor[which.max(cor_col)]]]
               colnames(x)[i]<-chk_cor[which.max(cor_col)]
+              cor_vec[i]<-paste(chk_cor[which.max(cor_col)][1]," ~ Correlation : ",max(cor_col,na.rm = T))
             }
           }
+          else {
+            cor_vec[i]<-paste(sub_nm[i]," ~ Correlation : ",NA,sep = "")
+          }
         }
+
+        else {
+          suppressWarnings({
+            cor_val<-round(x = cor(x = dt_all[[sub_nm[i]]],y = dt_all[[tar_var]]),digits = 2)
+          })
+          if(is.na(cor_val) == T){
+            cor_vec[i]<-paste(sub_nm[i]," ~ Correlation : ",NA,sep = "")
+          }
+          else {
+            cor_vec[i]<-paste(sub_nm[i]," ~ Correlation : ",cor_val)
+          }
+        }
+      }
+
+      cor_drop<-dlgList(choices = c(cor_vec,"---None---"),multiple = T,title = "Choose variable to drop")$res
+      if("---None---" %in% cor_drop == F){
+        cor_drop<-sapply(X = strsplit(x = cor_drop,split = " ~ Correlation : ",fixed = T),FUN = function(x){x[[1]]})
+        x<-x[,-cor_drop,with = F]
       }
 
       return(list("Selected" = x,"All" = dt_all))
@@ -1554,6 +1637,7 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
     #####################################---Plotting---#####################################
 
     plot_cor<-function(x,name,x_all){
+      x_all<-setcolorder(x = x_all,neworder = sort(colnames(x_all),decreasing = F))
       suppressWarnings(expr = {
         cor_mat<-cor(x = x)
         cor_mat_all<-cor(x = x_all)
@@ -1608,11 +1692,10 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
     #####################################---Train/Test split---#####################################
 
     pt_tst<-dlgList(choices = vec_time,title = "Select test data points",multiple = T)$res
-    mod_var<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Variable_Type"]] %in% "EDA" == F)]
+    eda_var<-dt_scp$Scope[["Model_Name"]][which(dt_scp$Scope[["Variable_Type"]] %in% "EDA" == T)]
     data_split<-function(x,raw = F,name){
-      dt_tst<-x[which(vec_time %in% pt_tst == F),which(colnames(x) %in% mod_var),with = F]
-      dt_trn<-x[which(vec_time %in% pt_tst == F),which(colnames(x) %in% mod_var),with = F]
-
+      dt_tst<-x[which(vec_time %in% pt_tst),which(colnames(x) %in% eda_var == F),with = F]
+      dt_trn<-x[which(vec_time %in% pt_tst == F),which(colnames(x) %in% eda_var == F),with = F]
       if(raw == F){
         write.csv(x = dt_trn,row.names = F,
                   file = paste(wd_path,paste(name,"\\Train_Log_",name,".csv",sep = ""),sep = "\\"))
@@ -1654,6 +1737,7 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
     #####################################---Output generation---#####################################
 
     write_out<-function(x,prm_fam,ret_nm,name){
+      x<-setcolorder(x = x,neworder = sort(colnames(x),decreasing = F))
       if(exists("vec_time")){
         x<-cbind.data.frame(cbind.data.frame("Year" = sapply(X = strsplit(x = vec_time,split = " - ",fixed = T),FUN = function(y){
           as.numeric(y[[1]])
@@ -1676,7 +1760,7 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
       }
       x<-cbind.data.frame("Market/Retailer" = rep(x = ret_nm,times = nrow(x)),x)
 
-      openxlsx::write.xlsx(x = x,file = paste(wd_path,paste(name,"\\Transformed Data_",name,".xlsx",sep = ""),sep = "\\"))
+      openxlsx::write.xlsx(x = x,file = paste(wd_path,paste(name,"\\Transformed Data_",name,".xlsx",sep = ""),sep = "\\"),asTable = T)
 
       return(x)
     }
@@ -1687,14 +1771,14 @@ Transform_Data<-function(ls_dt_sub,vec_time,dt_scp,wd_path,prm = F){
         for(j in 1:length(ls_dt_sub[[i]])){
           nm_prm<-names(ls_dt_sub[[i]])[j]
           nm_ls<-paste(nm_ret,names(ls_dt_sub[[i]])[j],sep = "_")
-          ls_dt_sub_raw[[i]][[j]]<-write_out(x = ls_dt_sub_raw[[i]][[j]],name = nm_ls,ret_nm = nm_ret,prm_fam = nm_prm)
+          ls_dt_all[[i]][[j]]<-write_out(x = ls_dt_all[[i]][[j]],name = nm_ls,ret_nm = nm_ret,prm_fam = nm_prm)
         }
       }
     }
     else {
       for(i in 1:length(ls_dt_sub)){
         nm_ls<-names(ls_dt_sub)[i]
-        ls_dt_sub_raw[[i]]<-write_out(x = ls_dt_sub_raw[[i]],name = nm_ls,ret_nm = nm_ls,prm_fam = NA)
+        ls_dt_all[[i]]<-write_out(x = ls_dt_all[[i]],name = nm_ls,ret_nm = nm_ls,prm_fam = NA)
       }
     }
 
