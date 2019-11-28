@@ -15,159 +15,180 @@ Inspect_Data<-function(auto = T,prm = F){
   suppressMessages({
     suppressWarnings({
       require(svDialogs,quietly = T,warn.conflicts = F)
-    })
-
-    #####################################---Reading data---#####################################
-
-    fl_chs<-dlgMessage(message = "Choose your data file (in .xlsx or .csv format)",type = "okcancel")$res
-    if(fl_chs == "cancel"){
-      stop("No data file chosen")
-    }
-    else if(fl_chs == "ok") {
-      fl_path<-choose.files()
-      wd_path<-dirname(fl_path)
-      if(auto == T){
-        cat(paste(wd_path,"has been set as your working directory"),
-            "\nAll outputs, reports and plots will be saved here\n\n")
+      require(data.table,quietly = T,warn.conflicts = F)
+      
+      #####################################---Reading data---#####################################
+      
+      fl_chs<-dlgMessage(message = "Choose your data file (in .xlsx or .csv format)",type = "okcancel")$res
+      if(fl_chs == "cancel"){
+        stop("No data file chosen")
       }
-      else {
-        wd_can<-dlgMessage(message = c(paste(wd_path,"has been set as your working directory"),
-                                       "All outputs, reports and plots will be saved here"),type = "ok")$res
-      }
-
-      fl_form<-unlist(strsplit(x = fl_path,split = "\\."))
-      fl_form<-fl_form[length(fl_form)]
-      if(auto == T){
-        fl_head<-T
-        fl_blnk<-c("N/A","?","-")
-      }
-      else {
-        fl_head<-dlgMessage(message = "Does your data file contain headers/column labels?",type = "yesno")$res
-        fl_head<-ifelse(test = fl_head == "yes",yes = T,no = F)
-        fl_blnk<-dlgInput(message = c("Enter any characters present in the data that should be considered missing data",
-                                      "For multiple inputs separate the characters by & symbol without whitespace"),default = "N/A&?&-")$res
-        fl_blnk<-unlist(strsplit(fl_blnk,split = "&"))
-      }
-      if(fl_form == "csv"){
-        dt_in<-data.table::fread(input = fl_path,sep = ",",header = fl_head,na.strings = c(fl_blnk))
-      }
-      else {
-        if(length(readxl::excel_sheets(path = fl_path)) == 1){
-          fl_sht<-1
+      else if(fl_chs == "ok") {
+        fl_path<-choose.files()
+        wd_path<-dirname(fl_path)
+        if(auto == T){
+          cat(paste(wd_path,"has been set as your working directory"),
+              "\nAll outputs, reports and plots will be saved here\n\n")
         }
         else {
-          fl_sht<-dlgList(choices = readxl::excel_sheets(path = fl_path),multiple = F,title = "Select sheet")$res
+          wd_can<-dlgMessage(message = c(paste(wd_path,"has been set as your working directory"),
+                                         "All outputs, reports and plots will be saved here"),type = "ok")$res
         }
-        dt_in<-as.data.table(readxl::read_excel(path = fl_path,sheet = fl_sht,col_names = fl_head,na = c(""," ",fl_blnk)))
-      }
-      if(exists("dt_in") == T){
-        col_ret<-dlgList(choices = colnames(dt_in),title = "Choose Market/Retailer column")$res
-        if(prm == T){
-          col_prm<-dlgList(choices = colnames(dt_in),title = "Choose Promo family column")$res
-        }
-
-        sel_yr<-dlgList(choices = colnames(dt_in),title = "Choose year column")$res
-        sel_per<-dlgList(choices = colnames(dt_in),title = "Choose period/month column")$res
-        colnames(dt_in)[which(colnames(dt_in) %in% col_ret)]<-"Market"
-        if(prm == T){
-          colnames(dt_in)[which(colnames(dt_in) %in% col_prm)]<-"Promo"
-        }
-        dt_in[,Year_Temp := as.numeric(dt_in[[sel_yr]])]
-        dt_in[,Period_Temp := as.numeric(gsub(pattern = '([0-9]+).*',replacement = '\\1',x = dt_in[[sel_per]]))]
-        if(prm == T){
-          dt_in<-dt_in[order(Market,Promo,Year_Temp,Period_Temp,decreasing = F)]
-          colnames(dt_in)[which(colnames(dt_in) %in% "Promo")]<-col_prm
+        
+        fl_form<-unlist(strsplit(x = fl_path,split = "\\."))
+        fl_form<-fl_form[length(fl_form)]
+        if(auto == T){
+          fl_head<-T
+          fl_blnk<-c("N/A","?","-")
         }
         else {
-          dt_in<-dt_in[order(Market,Year_Temp,Period_Temp,decreasing = F)]
-          colnames(dt_in)[which(colnames(dt_in) %in% "Market")]<-col_ret
+          fl_head<-dlgMessage(message = "Does your data file contain headers/column labels?",type = "yesno")$res
+          fl_head<-ifelse(test = fl_head == "yes",yes = T,no = F)
+          fl_blnk<-dlgInput(message = c("Enter any characters present in the data that should be considered missing data",
+                                        "For multiple inputs separate the characters by & symbol without whitespace"),default = "N/A&?&-")$res
+          fl_blnk<-unlist(strsplit(fl_blnk,split = "&"))
         }
-        dt_in<-dt_in[,Year_Temp := NULL]
-        dt_in<-dt_in[,Period_Temp := NULL]
-
-
-        Check_cls<-function(x){
-          x_na<-na.omit(x)
-          x_num<-as.numeric(x_na)
-          if(sum(is.na(x_num)) > 0.5 * length(x_na)){
-            is_num<-F
+        if(fl_form == "csv"){
+          dt_in<-data.table::fread(input = fl_path,sep = ",",header = fl_head,na.strings = c(fl_blnk))
+        }
+        else {
+          if(length(readxl::excel_sheets(path = fl_path)) == 1){
+            fl_sht<-1
           }
           else {
-            is_num<-T
+            fl_sht<-dlgList(choices = readxl::excel_sheets(path = fl_path),multiple = F,title = "Select sheet")$res
           }
-          return(is_num)
+          dt_in<-as.data.table(readxl::read_excel(path = fl_path,sheet = fl_sht,col_names = fl_head,na = c(""," ",fl_blnk)))
         }
-
-        suppressWarnings({
-          vec_isnum<-as.logical(dt_in[,lapply(X = .SD,FUN = Check_cls),.SDcols = colnames(dt_in)][1,])
-          names(vec_isnum)<-colnames(dt_in)
-          vec_isnum[which(names(vec_isnum) %in% c(sel_yr,sel_per))]<-F
-          dt_in_num<-dt_in[,lapply(X = .SD,FUN = as.numeric),.SDcols = colnames(dt_in)[vec_isnum]]
-          dt_in_cat<-dt_in[,!vec_isnum,with = F]
-          for(i in 1:ncol(dt_in_num)){
-            dt_in[,which(colnames(dt_in) == colnames(dt_in_num)[i])]<-dt_in_num[[i]]
+        if(exists("dt_in") == T){
+          col_ret<-dlgList(choices = colnames(dt_in),title = "Choose Market/Retailer column")$res
+          if(prm == T){
+            col_prm<-dlgList(choices = colnames(dt_in),title = "Choose Promo family column")$res
           }
-        })
-        if(auto == T){
-          cat("-----Data successfully read-----\n\n")
+          
+          sel_yr<-dlgList(choices = colnames(dt_in),title = "Choose year column")$res
+          sel_per<-dlgList(choices = colnames(dt_in),title = "Choose period/month column")$res
+          colnames(dt_in)[which(colnames(dt_in) %in% col_ret)]<-"Market"
+          if(prm == T){
+            colnames(dt_in)[which(colnames(dt_in) %in% col_prm)]<-"Promo"
+          }
+          dt_in[,Year_Temp := as.numeric(dt_in[[sel_yr]])]
+          dt_in[,Period_Temp := as.numeric(gsub(pattern = '([0-9]+).*',replacement = '\\1',x = dt_in[[sel_per]]))]
+          if(prm == T){
+            dt_in<-dt_in[order(Market,Promo,Year_Temp,Period_Temp,decreasing = F)]
+            colnames(dt_in)[which(colnames(dt_in) %in% "Promo")]<-col_prm
+          }
+          else {
+            dt_in<-dt_in[order(Market,Year_Temp,Period_Temp,decreasing = F)]
+            colnames(dt_in)[which(colnames(dt_in) %in% "Market")]<-col_ret
+          }
+          dt_in<-dt_in[,Year_Temp := NULL]
+          dt_in<-dt_in[,Period_Temp := NULL]
+          
+          
+          Check_cls<-function(x){
+            x_na<-na.omit(x)
+            x_num<-as.numeric(x_na)
+            if(sum(is.na(x_num)) > 0.5 * length(x_na)){
+              is_num<-F
+            }
+            else {
+              is_num<-T
+            }
+            return(is_num)
+          }
+          
+          suppressWarnings({
+            vec_isnum<-as.logical(dt_in[,lapply(X = .SD,FUN = Check_cls),.SDcols = colnames(dt_in)][1,])
+            names(vec_isnum)<-colnames(dt_in)
+            vec_isnum[which(names(vec_isnum) %in% c(sel_yr,sel_per))]<-F
+            dt_in_num<-dt_in[,lapply(X = .SD,FUN = as.numeric),.SDcols = colnames(dt_in)[vec_isnum]]
+            dt_in_cat<-dt_in[,!vec_isnum,with = F]
+            for(i in 1:ncol(dt_in_num)){
+              dt_in[,which(colnames(dt_in) == colnames(dt_in_num)[i])]<-dt_in_num[[i]]
+            }
+          })
+          if(auto == T){
+            cat("-----Data successfully read-----\n\n")
+          }
+          else {
+            dlgMessage(message = "Data successfully read",type = "ok")
+            dt_prv<-dlgMessage(message = c(paste("No. of observations (rows) in the dataset :",nrow(dt_in)),
+                                           paste("No. of variables (columns) in the dataset :",ncol(dt_in)),
+                                           "Would you like to preview a portion of your data?"),type = "yesno")$res
+            if(dt_prv == "yes"){
+              print(dt_in[1:10,1:10])
+            }
+          }
         }
         else {
-          dlgMessage(message = "Data successfully read",type = "ok")
-          dt_prv<-dlgMessage(message = c(paste("No. of observations (rows) in the dataset :",nrow(dt_in)),
-                                         paste("No. of variables (columns) in the dataset :",ncol(dt_in)),
-                                         "Would you like to preview a portion of your data?"),type = "yesno")$res
-          if(dt_prv == "yes"){
-            print(dt_in[1:10,1:10])
-          }
+          stop("The data could not be read. Please make sure the format of the file is supported.")
         }
       }
-      else {
-        stop("The data could not be read. Please make sure the format of the file is supported.")
+      
+      #####################################---Report generation---#####################################
+      
+      fl_nm_ls<-unlist(strsplit(x = fl_path,split = "\\",fixed = T))
+      fl_nm<-fl_nm_ls[length(fl_nm_ls)]
+      if(exists("fl_sht")){
+        fl_nm<-paste(fl_nm,fl_sht,sep = " - Sheet: ")
       }
-    }
-
-    #####################################---Report generation---#####################################
-
-    fl_nm_ls<-unlist(strsplit(x = fl_path,split = "\\",fixed = T))
-    fl_nm<-fl_nm_ls[length(fl_nm_ls)]
-    if(exists("fl_sht")){
-      fl_nm<-paste(fl_nm,fl_sht,sep = " - Sheet: ")
-    }
-    fl_size<-file.info(fl_path)$size/1000
-    fl_src<-dlgInput(message = "Enter file source")$res
-    fl_dt_run<-dlgInput(message = c("Enter file received date","Format : YYYY-MM-DD"),
-                        default = "2019-01-31")$res
-    fl_dt_exp<-dlgInput(message = c("Enter expected date","Format : YYYY-MM-DD"),
-                        default = "2019-01-31")$res
-    dt_fl_sum<-data.table("File name" = fl_nm,"File path" = fl_path,"Size (KB)" = fl_size,
-                          "Variables" = ncol(dt_in),"Observations" = nrow(dt_in),
-                          "Data source" = fl_src,"Date received" = fl_dt_run,"Date expected" = fl_dt_exp)
-
-    cat("GENERATING REPORTS\n")
-    if(prm == T){
-      dt_in_mix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],"Promo_Family" = dt_in[[col_prm]],dt_in_num)
-      dt_in_cix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],"Promo_Family" = dt_in[[col_prm]],dt_in_cat)
-      vec_prm<-unique(na.omit(dt_in[[col_prm]]))
-    }
-    else {
-      dt_in_mix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],dt_in_num)
-      dt_in_cix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],dt_in_cat)
-    }
-    vec_ret<-unique(na.omit(dt_in[[col_ret]]))
-    ls_dt_num<-vector(mode = "list",length = length(vec_ret))
-    ls_dt_out<-vector(mode = "list",length = length(vec_ret))
-    ls_dt_cat<-vector(mode = "list",length = length(vec_ret))
-    names(ls_dt_num)<-names(ls_dt_out)<-names(ls_dt_cat)<-vec_ret
-
-    cat("|",rep(x = "=",times = 20),sep = "")
-
-    for(i in 1:length(vec_ret)){
+      fl_size<-file.info(fl_path)$size/1000
+      fl_src<-dlgInput(message = "Enter file source")$res
+      fl_dt_run<-dlgInput(message = c("Enter file received date","Format : YYYY-MM-DD"),
+                          default = "2019-01-31")$res
+      fl_dt_exp<-dlgInput(message = c("Enter expected date","Format : YYYY-MM-DD"),
+                          default = "2019-01-31")$res
+      dt_fl_sum<-data.table("File name" = fl_nm,"File path" = fl_path,"Size (KB)" = fl_size,
+                            "Variables" = ncol(dt_in),"Observations" = nrow(dt_in),
+                            "Data source" = fl_src,"Date received" = fl_dt_run,"Date expected" = fl_dt_exp)
+      
+      cat("GENERATING REPORTS\n")
       if(prm == T){
-        for(j in 1:length(vec_prm)){
-          ls_dt_num[[i]][[j]]<-dt_in_mix[`Market_Retailer` == vec_ret[i] & `Promo_Family` == vec_prm[j]]
-          names(ls_dt_num[[i]])[j]<-paste(vec_ret[i],vec_prm[j],sep = "_")
-          num_id<-which(dt_in_mix$`Market_Retailer` == vec_ret[i] & dt_in_mix$`Promo_Family` == vec_prm[j])
-          ls_out<-lapply(X = ls_dt_num[[i]][[j]][,-c(1,2),with = F],FUN = function(x){
+        dt_in_mix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],"Promo_Family" = dt_in[[col_prm]],dt_in_num)
+        dt_in_cix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],"Promo_Family" = dt_in[[col_prm]],dt_in_cat)
+        vec_prm<-unique(na.omit(dt_in[[col_prm]]))
+      }
+      else {
+        dt_in_mix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],dt_in_num)
+        dt_in_cix<-cbind.data.frame("Market_Retailer" = dt_in[[col_ret]],dt_in_cat)
+      }
+      vec_ret<-unique(na.omit(dt_in[[col_ret]]))
+      ls_dt_num<-vector(mode = "list",length = length(vec_ret))
+      ls_dt_out<-vector(mode = "list",length = length(vec_ret))
+      ls_dt_cat<-vector(mode = "list",length = length(vec_ret))
+      names(ls_dt_num)<-names(ls_dt_out)<-names(ls_dt_cat)<-vec_ret
+      
+      cat("|",rep(x = "=",times = 20),sep = "")
+      
+      for(i in 1:length(vec_ret)){
+        if(prm == T){
+          for(j in 1:length(vec_prm)){
+            ls_dt_num[[i]][[j]]<-dt_in_mix[`Market_Retailer` == vec_ret[i] & `Promo_Family` == vec_prm[j]]
+            names(ls_dt_num[[i]])[j]<-paste(vec_ret[i],vec_prm[j],sep = "_")
+            num_id<-which(dt_in_mix$`Market_Retailer` == vec_ret[i] & dt_in_mix$`Promo_Family` == vec_prm[j])
+            ls_out<-lapply(X = ls_dt_num[[i]][[j]][,-c(1,2),with = F],FUN = function(x){
+              x_na<-na.omit(x)
+              x_val<-x_na[which(x_na > 0)]
+              x_quant<-quantile(x = x_val,na.rm = T)
+              x_iqr<-IQR(x = x_val,na.rm = T)
+              x_low<-which(is.na(x) == F & x > 0 & x < (x_quant[2] - 1.5*x_iqr))
+              x_up<-which(is.na(x) == F & x > 0 & x > (x_quant[4] + 1.5*x_iqr))
+              outs<-sort(x = c(x_low,x_up),decreasing = F)
+              outs<-num_id[outs]
+              return(outs)
+            })
+            ls_dt_out[[i]][[j]]<-ls_out
+            names(ls_dt_out[[i]])[j]<-paste(vec_ret[i],vec_prm[j],sep = "_")
+            ls_dt_cat[[i]][[j]]<-dt_in_cix[`Market_Retailer` == vec_ret[i] & `Promo_Family` == vec_prm[j]]
+            names(ls_dt_cat[[i]])[j]<-paste(vec_ret[i],vec_prm[j],sep = "_")
+          }
+        }
+        
+        else {
+          ls_dt_num[[i]]<-dt_in_mix[`Market_Retailer` == vec_ret[i]]
+          num_id<-which(dt_in_mix$`Market_Retailer` == vec_ret[i])
+          ls_out<-lapply(X = ls_dt_num[[i]][,-1,with = F],FUN = function(x){
             x_na<-na.omit(x)
             x_val<-x_na[which(x_na > 0)]
             x_quant<-quantile(x = x_val,na.rm = T)
@@ -178,268 +199,247 @@ Inspect_Data<-function(auto = T,prm = F){
             outs<-num_id[outs]
             return(outs)
           })
-          ls_dt_out[[i]][[j]]<-ls_out
-          names(ls_dt_out[[i]])[j]<-paste(vec_ret[i],vec_prm[j],sep = "_")
-          ls_dt_cat[[i]][[j]]<-dt_in_cix[`Market_Retailer` == vec_ret[i] & `Promo_Family` == vec_prm[j]]
-          names(ls_dt_cat[[i]])[j]<-paste(vec_ret[i],vec_prm[j],sep = "_")
+          ls_dt_out[[i]]<-ls_out
+          ls_dt_cat[[i]]<-dt_in_cix[`Market_Retailer` == vec_ret[i]]
         }
       }
-
-      else {
-        ls_dt_num[[i]]<-dt_in_mix[`Market_Retailer` == vec_ret[i]]
-        num_id<-which(dt_in_mix$`Market_Retailer` == vec_ret[i])
-        ls_out<-lapply(X = ls_dt_num[[i]][,-1,with = F],FUN = function(x){
-          x_na<-na.omit(x)
-          x_val<-x_na[which(x_na > 0)]
+      
+      cat(rep(x = "=",times = 20),sep = "")
+      
+      Create_num_sum<-function(y){
+        mkt<-unique(na.omit(y[[1]]))
+        if(prm == T){
+          pfm<-unique(na.omit(y[[2]]))
+          dt_nrt<-y[,-c(1,2),with = F]
+        }
+        else {
+          dt_nrt<-y[,-1,with = F]
+        }
+        nm_sum<-setDT(lapply(X = dt_nrt,FUN = function(x){
+          return(as.numeric(summary(x,na.rm = T)[1:6]))
+        }))
+        nm_sum<-nm_sum[,lapply(X = .SD,FUN = round,digits = 2),.SDcols = colnames(nm_sum)]
+        var_sum<-colnames(nm_sum)
+        mkt_col<-rep(x = mkt,times = length(var_sum))
+        if(prm == T){
+          pfm_col<-rep(x = pfm,times = length(var_sum))
+          nm_sum<-cbind.data.frame(var_sum,mkt_col,pfm_col,transpose(nm_sum))
+          colnames(nm_sum)<-c("Variable","Market_Retailer","Promo_Family","Min","Q1","Median","Mean","Q3","Max")
+        }      else {
+          nm_sum<-cbind.data.frame(var_sum,mkt_col,transpose(nm_sum))
+          colnames(nm_sum)<-c("Variable","Market_Retailer","Min","Q1","Median","Mean","Q3","Max")
+        }
+        nm_sum[,Total := nrow(dt_nrt)]
+        na_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
+          return(sum(is.na(x)))
+        }),.SDcols = colnames(dt_nrt)][1,])
+        zero_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
+          return(length(which(x == 0)))
+        }),.SDcols = colnames(dt_nrt)][1,])
+        neg_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
+          return(length(which(x < 0)))
+        }),.SDcols = colnames(dt_nrt)][1,])
+        out_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
+          x<-na.omit(x)
+          x_val<-x[which(x > 0)]
           x_quant<-quantile(x = x_val,na.rm = T)
-          x_iqr<-IQR(x = x_val,na.rm = T)
-          x_low<-which(is.na(x) == F & x > 0 & x < (x_quant[2] - 1.5*x_iqr))
-          x_up<-which(is.na(x) == F & x > 0 & x > (x_quant[4] + 1.5*x_iqr))
-          outs<-sort(x = c(x_low,x_up),decreasing = F)
-          outs<-num_id[outs]
+          x_low<-which(x_val < (x_quant[2] - 1.5*IQR(x = x_val,na.rm = T)))
+          x_up<-which(x_val > (x_quant[4] + 1.5*IQR(x = x_val,na.rm = T)))
+          outs<-length(x_low) + length(x_up)
           return(outs)
+        }),.SDcols = colnames(dt_nrt)][1,])
+        nm_sum<-cbind.data.frame(nm_sum,"Missing" = na_cnt,"Zeros" = zero_cnt,"Negative" = neg_cnt,
+                                 "Outliers" = out_cnt)
+        nm_sum[,Valid := Total - Missing - Zeros - Negative - Outliers]
+        nm_sum[,"Missing(%)" := round(Missing/Total * 100,digits = 2)]
+        nm_sum[,"Zeros(%)" := round(Zeros/Total * 100,digits = 2)]
+        nm_sum[,"Negative(%)" := round(Negative/Total * 100,digits = 2)]
+        nm_sum[,"Outliers(%)" := round(Outliers/Total * 100,digits = 2)]
+        nm_sum[,"Valid(%)" := round(Valid/Total * 100,digits = 2)]
+        
+        return(nm_sum)
+      }
+      
+      if(prm == T){
+        ls_dt_num<-lapply(X = ls_dt_num,FUN = function(y){
+          lapply(X = y,FUN = Create_num_sum)
         })
-        ls_dt_out[[i]]<-ls_out
-        ls_dt_cat[[i]]<-dt_in_cix[`Market_Retailer` == vec_ret[i]]
+        num_sum<-rbindlist(l = lapply(X = ls_dt_num,FUN = rbindlist,use.names = T),use.names = T)
+      }else {
+        ls_dt_num<-lapply(X = ls_dt_num,FUN = Create_num_sum)
+        num_sum<-rbindlist(l = ls_dt_num,use.names = T)
       }
-    }
-
-    cat(rep(x = "=",times = 20),sep = "")
-
-    Create_num_sum<-function(y){
-      mkt<-unique(na.omit(y[[1]]))
+      num_sum<-num_sum[,lapply(X = .SD,FUN = function(x){
+        x[is.nan(x)]<-NA
+        return(x)
+      }),.SDcols = colnames(num_sum)]
+      num_sum<-num_sum[order(`Valid(%)`)]
+      
+      Create_cat_sum<-function(y){
+        if(prm == T){
+          mode_cat<-as.character(y[,lapply(X = .SD,FUN = function(x){
+            x_tab<-table(x,useNA = "no")
+            mode<-names(x_tab)[which.max(x_tab)]
+          }),.SDcols = colnames(y)[-c(1,2)]][1,])
+          lvl_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
+            return(length(na.omit(unique(x))))
+          }),.SDcols = colnames(y)[-c(1,2)]][1,])
+          mod_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
+            return(max(table(x,useNA = "no")))
+          }),.SDcols = colnames(y)[-c(1,2)]][1,])
+          nac_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
+            return(sum(is.na(x)))
+          }),.SDcols = colnames(y)[-c(1,2)]][1,])
+          mkt<-unique(na.omit(y[[1]]))
+          col_mkt<-rep(x = mkt,times = length(mode_cat))
+          pfm<-unique(na.omit(y[[2]]))
+          col_pfm<-rep(x = pfm,times = length(mode_cat))
+          cat_sum<-data.table("Variable" = colnames(y)[-c(1,2)],"Market_Retailer" = col_mkt,"Promo_Family" = col_pfm,
+                              "Unique levels" = lvl_cnt,"Mode" = mode_cat,"Mode count" = mod_cnt,
+                              "Missing" = nac_cnt,"Total" = rep(x = nrow(y),times = length(colnames(y)) - 2))
+          cat_sum[,"Mode count(%)" := round(`Mode count`/Total * 100,digits = 2)]
+          cat_sum[,"Missing(%)" := round(Missing/Total * 100,digits = 2)]
+        }
+        else {
+          mode_cat<-as.character(y[,lapply(X = .SD,FUN = function(x){
+            x_tab<-table(x,useNA = "no")
+            mode<-names(x_tab)[which.max(x_tab)]
+          }),.SDcols = colnames(y)[-1]][1,])
+          lvl_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
+            return(length(na.omit(unique(x))))
+          }),.SDcols = colnames(y)[-1]][1,])
+          mod_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
+            return(max(table(x,useNA = "no")))
+          }),.SDcols = colnames(y)[-1]][1,])
+          nac_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
+            return(sum(is.na(x)))
+          }),.SDcols = colnames(y)[-1]][1,])
+          mkt<-unique(na.omit(y[[1]]))
+          col_mkt<-rep(x = mkt,times = length(mode_cat))
+          cat_sum<-data.table("Variable" = colnames(y)[-1],"Market_Retailer" = col_mkt,"Unique levels" = lvl_cnt,
+                              "Mode" = mode_cat,"Mode count" = mod_cnt,"Missing" = nac_cnt,
+                              "Total" = rep(x = nrow(y),times = length(colnames(y)[-1])))
+          cat_sum[,"Mode count(%)" := round(`Mode count`/Total * 100,digits = 2)]
+          cat_sum[,"Missing(%)" := round(Missing/Total * 100,digits = 2)]
+        }
+        
+        return(cat_sum)
+      }
+      
       if(prm == T){
-        pfm<-unique(na.omit(y[[2]]))
-        dt_nrt<-y[,-c(1,2),with = F]
+        ls_dt_cat<-lapply(X = ls_dt_cat,FUN = function(y){
+          lapply(X = y,FUN = Create_cat_sum)
+        })
+        cat_sum<-rbindlist(l = lapply(X = ls_dt_cat,FUN = rbindlist,use.names = T),use.names = T)
       }
       else {
-        dt_nrt<-y[,-1,with = F]
+        ls_dt_cat<-lapply(X = ls_dt_cat,FUN = Create_cat_sum)
+        cat_sum<-rbindlist(l = ls_dt_cat,use.names = T)
       }
-      nm_sum<-as.data.table(lapply(X = dt_nrt,FUN = function(x){
-        return(summary(x,na.rm = T)[1:6])
-      }))
-      nm_sum<-nm_sum[,lapply(X = .SD,FUN = round,digits = 2),.SDcols = colnames(nm_sum)]
-      var_sum<-colnames(nm_sum)
-      mkt_col<-rep(x = mkt,times = length(var_sum))
-      if(prm == T){
-        pfm_col<-rep(x = pfm,times = length(var_sum))
-        nm_sum<-cbind.data.frame(var_sum,mkt_col,pfm_col,transpose(nm_sum))
-        colnames(nm_sum)<-c("Variable","Market_Retailer","Promo_Family","Min","Q1","Median","Mean","Q3","Max")
-      }
-      else {
-        nm_sum<-cbind.data.frame(var_sum,mkt_col,transpose(nm_sum))
-        colnames(nm_sum)<-c("Variable","Market_Retailer","Min","Q1","Median","Mean","Q3","Max")
-      }
-      nm_sum[,Total := nrow(dt_nrt)]
-      na_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
-        return(sum(is.na(x)))
-      }),.SDcols = colnames(dt_nrt)][1,])
-      zero_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
-        return(length(which(x == 0)))
-      }),.SDcols = colnames(dt_nrt)][1,])
-      neg_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
-        return(length(which(x < 0)))
-      }),.SDcols = colnames(dt_nrt)][1,])
-      out_cnt<-as.numeric(dt_nrt[,lapply(X = .SD,FUN = function(x){
-        x<-na.omit(x)
-        x_val<-x[which(x > 0)]
-        x_quant<-quantile(x = x_val,na.rm = T)
-        x_low<-which(x_val < (x_quant[2] - 1.5*IQR(x = x_val,na.rm = T)))
-        x_up<-which(x_val > (x_quant[4] + 1.5*IQR(x = x_val,na.rm = T)))
-        outs<-length(x_low) + length(x_up)
-        return(outs)
-      }),.SDcols = colnames(dt_nrt)][1,])
-      nm_sum<-cbind.data.frame(nm_sum,"Missing" = na_cnt,"Zeros" = zero_cnt,"Negative" = neg_cnt,
-                               "Outliers" = out_cnt)
-      nm_sum[,Valid := Total - Missing - Zeros - Negative - Outliers]
-      nm_sum[,"Missing(%)" := round(Missing/Total * 100,digits = 2)]
-      nm_sum[,"Zeros(%)" := round(Zeros/Total * 100,digits = 2)]
-      nm_sum[,"Negative(%)" := round(Negative/Total * 100,digits = 2)]
-      nm_sum[,"Outliers(%)" := round(Outliers/Total * 100,digits = 2)]
-      nm_sum[,"Valid(%)" := round(Valid/Total * 100,digits = 2)]
-
-      return(nm_sum)
-    }
-
-    if(prm == T){
-      ls_dt_num<-lapply(X = ls_dt_num,FUN = function(y){
-        lapply(X = y,FUN = Create_num_sum)
+      cat_sum<-cat_sum[order(-`Missing(%)`)]
+      
+      ls_mis<-lapply(X = dt_in,FUN = function(x){
+        which(is.na(x) == T)
       })
-      num_sum<-rbindlist(l = lapply(X = ls_dt_num,FUN = rbindlist,use.names = T),use.names = T)
-    }
-    else {
-      ls_dt_num<-lapply(X = ls_dt_num,FUN = Create_num_sum)
-      num_sum<-rbindlist(l = ls_dt_num,use.names = T)
-    }
-    num_sum<-num_sum[,lapply(X = .SD,FUN = function(x){
-      x[is.nan(x)]<-NA
-      return(x)
-    }),.SDcols = colnames(num_sum)]
-    num_sum<-num_sum[order(`Valid(%)`)]
-
-    Create_cat_sum<-function(y){
-      if(prm == T){
-        mode_cat<-as.character(y[,lapply(X = .SD,FUN = function(x){
-          x_tab<-table(x,useNA = "no")
-          mode<-names(x_tab)[which.max(x_tab)]
-        }),.SDcols = colnames(y)[-c(1,2)]][1,])
-        lvl_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
-          return(length(na.omit(unique(x))))
-        }),.SDcols = colnames(y)[-c(1,2)]][1,])
-        mod_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
-          return(max(table(x,useNA = "no")))
-        }),.SDcols = colnames(y)[-c(1,2)]][1,])
-        nac_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
-          return(sum(is.na(x)))
-        }),.SDcols = colnames(y)[-c(1,2)]][1,])
-        mkt<-unique(na.omit(y[[1]]))
-        col_mkt<-rep(x = mkt,times = length(mode_cat))
-        pfm<-unique(na.omit(y[[2]]))
-        col_pfm<-rep(x = pfm,times = length(mode_cat))
-        cat_sum<-data.table("Variable" = colnames(y)[-c(1,2)],"Market_Retailer" = col_mkt,"Promo_Family" = col_pfm,
-                            "Unique levels" = lvl_cnt,"Mode" = mode_cat,"Mode count" = mod_cnt,
-                            "Missing" = nac_cnt,"Total" = rep(x = nrow(y),times = length(colnames(y)) - 2))
-        cat_sum[,"Mode count(%)" := round(`Mode count`/Total * 100,digits = 2)]
-        cat_sum[,"Missing(%)" := round(Missing/Total * 100,digits = 2)]
-      }
-      else {
-        mode_cat<-as.character(y[,lapply(X = .SD,FUN = function(x){
-          x_tab<-table(x,useNA = "no")
-          mode<-names(x_tab)[which.max(x_tab)]
-        }),.SDcols = colnames(y)[-1]][1,])
-        lvl_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
-          return(length(na.omit(unique(x))))
-        }),.SDcols = colnames(y)[-1]][1,])
-        mod_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
-          return(max(table(x,useNA = "no")))
-        }),.SDcols = colnames(y)[-1]][1,])
-        nac_cnt<-as.numeric(y[,lapply(X = .SD,FUN = function(x){
-          return(sum(is.na(x)))
-        }),.SDcols = colnames(y)[-1]][1,])
-        mkt<-unique(na.omit(y[[1]]))
-        col_mkt<-rep(x = mkt,times = length(mode_cat))
-        cat_sum<-data.table("Variable" = colnames(y)[-1],"Market_Retailer" = col_mkt,"Unique levels" = lvl_cnt,
-                            "Mode" = mode_cat,"Mode count" = mod_cnt,"Missing" = nac_cnt,
-                            "Total" = rep(x = nrow(y),times = length(colnames(y)[-1])))
-        cat_sum[,"Mode count(%)" := round(`Mode count`/Total * 100,digits = 2)]
-        cat_sum[,"Missing(%)" := round(Missing/Total * 100,digits = 2)]
-      }
-
-      return(cat_sum)
-    }
-
-    if(prm == T){
-      ls_dt_cat<-lapply(X = ls_dt_cat,FUN = function(y){
-        lapply(X = y,FUN = Create_cat_sum)
+      ls_mis<-ls_mis[lapply(X = ls_mis,FUN = length) > 0]
+      ls_neg<-lapply(X = dt_in_num,FUN = function(x){
+        which(x < 0)
       })
-      cat_sum<-rbindlist(l = lapply(X = ls_dt_cat,FUN = rbindlist,use.names = T),use.names = T)
-    }
-    else {
-      ls_dt_cat<-lapply(X = ls_dt_cat,FUN = Create_cat_sum)
-      cat_sum<-rbindlist(l = ls_dt_cat,use.names = T)
-    }
-    cat_sum<-cat_sum[order(-`Missing(%)`)]
-
-    ls_mis<-lapply(X = dt_in,FUN = function(x){
-      which(is.na(x) == T)
-    })
-    ls_mis<-ls_mis[lapply(X = ls_mis,FUN = length) > 0]
-    ls_neg<-lapply(X = dt_in_num,FUN = function(x){
-      which(x < 0)
-    })
-    ls_neg<-ls_neg[lapply(X = ls_neg,FUN = length) > 0]
-    ls_zero<-lapply(X = dt_in_num,FUN = function(x){
-      which(x == 0)
-    })
-    ls_zero<-ls_zero[lapply(X = ls_zero,FUN = length) > 0]
-    ls_out<-vector(mode = "list",length = length(colnames(dt_in_num)))
-    names(ls_out)<-colnames(dt_in_num)
-    if(prm == T){
-      for(i in 1:length(vec_ret)){
-        for(j in 1:length(vec_prm)){
-          ls_out<-mapply(FUN = c,ls_out,ls_dt_out[[i]][[j]])
+      ls_neg<-ls_neg[lapply(X = ls_neg,FUN = length) > 0]
+      ls_zero<-lapply(X = dt_in_num,FUN = function(x){
+        which(x == 0)
+      })
+      ls_zero<-ls_zero[lapply(X = ls_zero,FUN = length) > 0]
+      ls_out<-vector(mode = "list",length = length(colnames(dt_in_num)))
+      names(ls_out)<-colnames(dt_in_num)
+      if(prm == T){
+        for(i in 1:length(vec_ret)){
+          for(j in 1:length(vec_prm)){
+            ls_out<-mapply(FUN = c,ls_out,ls_dt_out[[i]][[j]])
+          }
         }
       }
-    }
-    else {
-      for(i in 1:length(ls_dt_out)){
-        ls_out<-mapply(c,ls_out,ls_dt_out[[i]])
+      else {
+        for(i in 1:length(ls_dt_out)){
+          ls_out<-mapply(c,ls_out,ls_dt_out[[i]])
+        }
       }
-    }
-    ls_out<-ls_out[lapply(X = ls_out,FUN = length) > 0]
-
-    cat(rep(x = "=",times = 20),sep = "")
-
-    wb_rep<-openxlsx::createWorkbook()
-    hed_style<-openxlsx::createStyle(border = c("top","bottom","left","right"),borderStyle = "medium",halign = "center",
-                                     textDecoration = "bold")
-    openxlsx::addWorksheet(wb = wb_rep,sheetName = "Data info",gridLines = T)
-    openxlsx::writeData(wb = wb_rep,sheet = "Data info",x = dt_fl_sum,colNames = T,rowNames = F,headerStyle = hed_style,
-                        borders = "all",borderStyle = "medium")
-    openxlsx::setColWidths(wb = wb_rep,sheet = "Data info",cols = 1:ncol(dt_fl_sum),widths = "auto")
-    openxlsx::addWorksheet(wb = wb_rep,sheetName = "Summary (numeric)",gridLines = T)
-    openxlsx::writeDataTable(wb = wb_rep,sheet = "Summary (numeric)",x = num_sum,colNames = T,rowNames = F)
-    openxlsx::setColWidths(wb = wb_rep,sheet = "Summary (numeric)",cols = 1:ncol(num_sum),widths = "auto")
-    openxlsx::addWorksheet(wb = wb_rep,sheetName = "Summary (categorical)",gridLines = T)
-    openxlsx::writeDataTable(wb = wb_rep,sheet = "Summary (categorical)",x = cat_sum,colNames = T,rowNames = F)
-    openxlsx::setColWidths(wb = wb_rep,sheet = "Summary (categorical)",cols = 1:ncol(cat_sum),widths = "auto")
-    openxlsx::addWorksheet(wb = wb_rep,sheetName = "Data highlight",gridLines = T)
-    openxlsx::writeDataTable(wb = wb_rep,sheet = "Data highlight",x = dt_in,colNames = T,rowNames = F)
-    openxlsx::setColWidths(wb = wb_rep,sheet = "Data highlight",cols = 1:ncol(dt_in),widths = "auto")
-    mis_style<-openxlsx::createStyle(fgFill = "#b8d8e1")
-    out_style<-openxlsx::createStyle(fgFill = "#357388")
-    neg_style<-openxlsx::createStyle(fgFill = "#528c9e")
-    zero_style<-openxlsx::createStyle(fgFill = "#7fb4be")
-
-    if(length(ls_mis) > 0){
-      for(i in 1:length(ls_mis)){
-        openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = mis_style,cols = which(colnames(dt_in) %in% names(ls_mis)[i]),
-                           rows = ls_mis[[i]] + 1)
+      ls_out<-ls_out[lapply(X = ls_out,FUN = length) > 0]
+      
+      cat(rep(x = "=",times = 20),sep = "")
+      
+      wb_rep<-openxlsx::createWorkbook()
+      hed_style<-openxlsx::createStyle(border = c("top","bottom","left","right"),borderStyle = "medium",halign = "center",
+                                       textDecoration = "bold")
+      openxlsx::addWorksheet(wb = wb_rep,sheetName = "Data info",gridLines = T)
+      openxlsx::writeData(wb = wb_rep,sheet = "Data info",x = dt_fl_sum,colNames = T,rowNames = F,headerStyle = hed_style,
+                          borders = "all",borderStyle = "medium")
+      openxlsx::setColWidths(wb = wb_rep,sheet = "Data info",cols = 1:ncol(dt_fl_sum),widths = "auto")
+      openxlsx::addWorksheet(wb = wb_rep,sheetName = "Summary (numeric)",gridLines = T)
+      openxlsx::writeDataTable(wb = wb_rep,sheet = "Summary (numeric)",x = num_sum,colNames = T,rowNames = F)
+      openxlsx::setColWidths(wb = wb_rep,sheet = "Summary (numeric)",cols = 1:ncol(num_sum),widths = "auto")
+      openxlsx::addWorksheet(wb = wb_rep,sheetName = "Summary (categorical)",gridLines = T)
+      openxlsx::writeDataTable(wb = wb_rep,sheet = "Summary (categorical)",x = cat_sum,colNames = T,rowNames = F)
+      openxlsx::setColWidths(wb = wb_rep,sheet = "Summary (categorical)",cols = 1:ncol(cat_sum),widths = "auto")
+      openxlsx::addWorksheet(wb = wb_rep,sheetName = "Data highlight",gridLines = T)
+      openxlsx::writeDataTable(wb = wb_rep,sheet = "Data highlight",x = dt_in,colNames = T,rowNames = F)
+      openxlsx::setColWidths(wb = wb_rep,sheet = "Data highlight",cols = 1:ncol(dt_in),widths = "auto")
+      mis_style<-openxlsx::createStyle(fgFill = "#b8d8e1")
+      out_style<-openxlsx::createStyle(fgFill = "#357388")
+      neg_style<-openxlsx::createStyle(fgFill = "#528c9e")
+      zero_style<-openxlsx::createStyle(fgFill = "#7fb4be")
+      
+      if(length(ls_mis) > 0){
+        for(i in 1:length(ls_mis)){
+          openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = mis_style,cols = which(colnames(dt_in) %in% names(ls_mis)[i]),
+                             rows = ls_mis[[i]] + 1)
+        }
       }
-    }
-    if(length(ls_neg) > 0){
-      for(i in 1:length(ls_neg)){
-        openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = neg_style,cols = which(colnames(dt_in) %in% names(ls_neg)[i]),
-                           rows = ls_neg[[i]] + 1)
+      if(length(ls_neg) > 0){
+        for(i in 1:length(ls_neg)){
+          openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = neg_style,cols = which(colnames(dt_in) %in% names(ls_neg)[i]),
+                             rows = ls_neg[[i]] + 1)
+        }
       }
-    }
-    if(length(ls_zero) > 0){
-      for(i in 1:length(ls_zero)){
-        openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = zero_style,cols = which(colnames(dt_in) %in% names(ls_zero)[i]),
-                           rows = ls_zero[[i]] + 1)
+      if(length(ls_zero) > 0){
+        for(i in 1:length(ls_zero)){
+          openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = zero_style,cols = which(colnames(dt_in) %in% names(ls_zero)[i]),
+                             rows = ls_zero[[i]] + 1)
+        }
       }
-    }
-    if(length(ls_out) > 0){
-      for(i in 1:length(ls_out)){
-        openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = out_style,cols = which(colnames(dt_in) %in% names(ls_out)[i]),
-                           rows = ls_out[[i]] + 1)
+      if(length(ls_out) > 0){
+        for(i in 1:length(ls_out)){
+          openxlsx::addStyle(wb = wb_rep,sheet = "Data highlight",style = out_style,cols = which(colnames(dt_in) %in% names(ls_out)[i]),
+                             rows = ls_out[[i]] + 1)
+        }
       }
-    }
-    low_style<-openxlsx::createStyle(fgFill = "#C2F2B5")
-    med_style<-openxlsx::createStyle(fgFill = "#F6EDA0")
-    high_style<-openxlsx::createStyle(fgFill = "#EFAFBF")
-    num_low<-which(num_sum$`Valid(%)` >= 75)
-    num_med<-which(num_sum$`Valid(%)` >= 50 & num_sum$`Valid(%)` < 75)
-    num_high<-which(num_sum$`Valid(%)` < 50)
-    cat_high<-which(cat_sum$`Missing(%)` >= 75)
-    cat_med<-which(cat_sum$`Missing(%)` >= 50 & cat_sum$`Missing(%)` < 75)
-    cat_low<-which(cat_sum$`Missing(%)` < 50)
-
-    openxlsx::addStyle(wb = wb_rep,sheet = "Summary (numeric)",style = low_style,rows = num_low + 1,cols = 1:ncol(num_sum),gridExpand = T)
-    openxlsx::addStyle(wb = wb_rep,sheet = "Summary (numeric)",style = med_style,rows = num_med + 1,cols = 1:ncol(num_sum),gridExpand = T)
-    openxlsx::addStyle(wb = wb_rep,sheet = "Summary (numeric)",style = high_style,rows = num_high + 1,cols = 1:ncol(num_sum),gridExpand = T)
-    openxlsx::addStyle(wb = wb_rep,sheet = "Summary (categorical)",style = low_style,rows = cat_low + 1,cols = 1:ncol(cat_sum),gridExpand = T)
-    openxlsx::addStyle(wb = wb_rep,sheet = "Summary (categorical)",style = med_style,rows = cat_med + 1,cols = 1:ncol(cat_sum),gridExpand = T)
-    openxlsx::addStyle(wb = wb_rep,sheet = "Summary (categorical)",style = high_style,rows = cat_high + 1,cols = 1:ncol(cat_sum),gridExpand = T)
-
-    openxlsx::saveWorkbook(wb = wb_rep,file = paste(wd_path,paste(paste("Data inspection",unlist(strsplit(x = fl_nm_ls[length(fl_nm_ls)],split = "\\."))[1],sep = "_")
-                                                                  ,".xlsx",sep = ""),sep = "\\"),overwrite = T)
-
-    cat(rep(x = "=",times = 20),"|\n\n",sep = "")
-
-    dlgMessage(message = "Data summary report has been successfully generated and saved in your working directory")
+      low_style<-openxlsx::createStyle(fgFill = "#C2F2B5")
+      med_style<-openxlsx::createStyle(fgFill = "#F6EDA0")
+      high_style<-openxlsx::createStyle(fgFill = "#EFAFBF")
+      num_low<-which(num_sum$`Valid(%)` >= 75)
+      num_med<-which(num_sum$`Valid(%)` >= 50 & num_sum$`Valid(%)` < 75)
+      num_high<-which(num_sum$`Valid(%)` < 50)
+      cat_high<-which(cat_sum$`Missing(%)` >= 75)
+      cat_med<-which(cat_sum$`Missing(%)` >= 50 & cat_sum$`Missing(%)` < 75)
+      cat_low<-which(cat_sum$`Missing(%)` < 50)
+      
+      openxlsx::addStyle(wb = wb_rep,sheet = "Summary (numeric)",style = low_style,rows = num_low + 1,cols = 1:ncol(num_sum),gridExpand = T)
+      openxlsx::addStyle(wb = wb_rep,sheet = "Summary (numeric)",style = med_style,rows = num_med + 1,cols = 1:ncol(num_sum),gridExpand = T)
+      openxlsx::addStyle(wb = wb_rep,sheet = "Summary (numeric)",style = high_style,rows = num_high + 1,cols = 1:ncol(num_sum),gridExpand = T)
+      openxlsx::addStyle(wb = wb_rep,sheet = "Summary (categorical)",style = low_style,rows = cat_low + 1,cols = 1:ncol(cat_sum),gridExpand = T)
+      openxlsx::addStyle(wb = wb_rep,sheet = "Summary (categorical)",style = med_style,rows = cat_med + 1,cols = 1:ncol(cat_sum),gridExpand = T)
+      openxlsx::addStyle(wb = wb_rep,sheet = "Summary (categorical)",style = high_style,rows = cat_high + 1,cols = 1:ncol(cat_sum),gridExpand = T)
+      
+      openxlsx::saveWorkbook(wb = wb_rep,file = paste(wd_path,paste(paste("Data inspection",unlist(strsplit(x = fl_nm_ls[length(fl_nm_ls)],split = "\\."))[1],sep = "_")
+                                                                    ,".xlsx",sep = ""),sep = "\\"),overwrite = T)
+      
+      cat(rep(x = "=",times = 20),"|\n\n",sep = "")
+      
+      dlgMessage(message = "Data summary report has been successfully generated and saved in your working directory")
+    })
   })
 }
+
 
 #' Automated data processing and preparation for BBN model creation
 #'
@@ -1294,6 +1294,7 @@ Prepare_Data<-function(prm = F){
     return(list("Data" = ls_dt_sub,"Period" = vec_time,"Scope" = dt_scp,"Working Directory" = wd_path))
   })
 }
+
 
 #' Automated data transformation and variable selection
 #'
